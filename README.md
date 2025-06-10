@@ -32,35 +32,43 @@ pip install -r requirements.txt
    - Use the `--credentials` option with path to service account JSON
    'gcloud auth login --enable-gdrive-access --update-adc'
 
+## 🔐 Google Sheets Integration (Optional)
+
+To export differences directly to Google Sheets:
+
+1. **See detailed setup guide:** [GOOGLE_SHEETS_SETUP.md](GOOGLE_SHEETS_SETUP.md)
+2. **Quick setup:**
+   - Create a Google Cloud project
+   - Enable Google Sheets API and Google Drive API
+   - Create a service account and download credentials JSON
+   - Rename to `google_credentials.json` and place in project root
+   - **Important:** This file is already excluded from git for security
+
+3. **Test the setup:**
+   ```bash
+   python analyze_differences.py --fund pi --format google_sheets
+   ```
+
+> **Security Note:** Never commit `google_credentials.json` to the repository. Use the template file (`google_credentials_template.json`) to understand the structure.
+
 ## Quick Start
 
-### 1. Compare Fund Report with Internal Data
+### 1. Run commands
 
-```bash
-# Basic comparison
-python csv_compare_cli.py compare-with-internal "data/fund_report.csv"
+# Export to Excel (default)
+python analyze_differences.py --fund pi --format excel
 
-# With detailed HTML report
-python csv_compare_cli.py compare-with-internal "data/fund_report.csv" \
-    --format html \
-    --output fund_comparison_report.html \
-    --export-internal internal_data.csv
+# Export to Google Sheets (requires setup)
+python analyze_differences.py --fund pi --format google_sheets
 
-# Using custom configuration
-python csv_compare_cli.py compare-with-internal "data/fund_report.csv" \
-    --config comparison_config.json \
-    --verbose
-```
+# Export to CSV
+python analyze_differences.py --fund pi --format csv
 
-### 2. Compare Two Fund Reports
+# Only export data (skip analysis)
+python analyze_differences.py --fund pi --format excel --export-only
 
-```bash
-# Compare two fund CSV files
-python csv_compare_cli.py compare "data/fund1.csv" "data/fund2.csv" \
-    --config comparison_config.json \
-    --format html \
-    --output fund_comparison.html
-```
+# Use specific file
+python analyze_differences.py --file reports/differences/pi_fund_differences.csv --format excel
 
 ### 3. Analyze Individual Files
 
