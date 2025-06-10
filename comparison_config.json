@@ -1,0 +1,8 @@
+{
+  "float_tolerance": 0.05,
+  "ignore_case": false,
+  "ignore_whitespace": true,
+  "ignore_columns": [],
+  "key_columns": ["NumeroContrato"],
+  "description": "Configuration for FIDC cession order comparison - ignores differences less than 3 cents (0.03)"
+}
