@@ -55,22 +55,38 @@ To export differences directly to Google Sheets:
 
 ### 1. Run commands
 
-# Export to Excel (default)
-python analyze_differences.py --fund pi --format excel
+# Complete analysis for PI fund with Excel output
+python run_fund_analysis.py --fund pi --date 2025-05-30 --format excel
 
-# Export to Google Sheets (requires setup)
-python analyze_differences.py --fund pi --format google_sheets
+# Complete analysis with Google Sheets export
+python run_fund_analysis.py --fund pi --format google_sheets
 
-# Export to CSV
-python analyze_differences.py --fund pi --format csv
+# Analysis for AI fund
+python run_fund_analysis.py --fund ai --date 2025-05-30 --format excel
 
-# Only export data (skip analysis)
-python analyze_differences.py --fund pi --format excel --export-only
+# Skip comparison step (use existing differences)
+python run_fund_analysis.py --fund pi --skip-comparison --format csv
 
-# Use specific file
-python analyze_differences.py --file reports/differences/pi_fund_differences.csv --format excel
+# Check your setup
+python run_fund_analysis.py --check-setup
 
-### 3. Analyze Individual Files
+# List available funds
+python run_fund_analysis.py --list-funds
+
+### 3. Quick analysis
+
+
+# Quick analysis for PI fund (Excel output)
+python quick_analysis.py
+
+# Quick analysis for AI fund
+python quick_analysis.py ai
+
+# Quick analysis with CSV output
+python quick_analysis.py pi csv
+
+# Quick analysis with Google Sheets
+python quick_analysis.py pi google_sheets
 
 ```bash
 # Get information about a CSV file
