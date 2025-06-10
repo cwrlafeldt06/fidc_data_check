@@ -18,7 +18,7 @@ from src.core.comparator import CSVComparator, ComparisonType
 from src.core.bigquery_loader import extract_internal_data
 
 
-def export_differences(fund_alias='pi', reference_date='2025-05-30'):
+def export_differences(fund_alias='pi', reference_date='2025-05-30', export_data=True, export_differences=True):
     """Export differing records to CSV for analysis."""
     
     print("🔍 Running comparison and exporting differences...")
@@ -26,14 +26,15 @@ def export_differences(fund_alias='pi', reference_date='2025-05-30'):
     # Create timestamp for file naming
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     
-    # Create output directories
+    # Create output directories only if needed
     reports_dir = Path("reports")
-    differences_dir = reports_dir / "differences"
-    data_exports_dir = reports_dir / "data_exports"
+    if export_differences:
+        differences_dir = reports_dir / "differences"
+        differences_dir.mkdir(parents=True, exist_ok=True)
     
-    # Ensure directories exist
-    differences_dir.mkdir(parents=True, exist_ok=True)
-    data_exports_dir.mkdir(parents=True, exist_ok=True)
+    if export_data:
+        data_exports_dir = reports_dir / "data_exports"
+        data_exports_dir.mkdir(parents=True, exist_ok=True)
     
     # Configuration
     config_dict = {
@@ -51,10 +52,14 @@ def export_differences(fund_alias='pi', reference_date='2025-05-30'):
         fund_alias=fund_alias
     )
     
-    # Export internal data
-    internal_export_file = data_exports_dir / f"internal_data_{fund_alias}_{reference_date.replace('-', '')}_{timestamp}.csv"
-    internal_df.to_csv(internal_export_file, index=False)
-    print(f"💾 Internal data exported to: {internal_export_file}")
+    # Export internal data only if requested
+    if export_data:
+        internal_export_file = data_exports_dir / f"internal_data_{fund_alias}_{reference_date.replace('-', '')}_{timestamp}.csv"
+        internal_df.to_csv(internal_export_file, index=False)
+        print(f"💾 Internal data exported to: {internal_export_file}")
+    else:
+        print("⏭️  Skipping internal data export")
+        internal_export_file = None
     
     # Load fund CSV
     print("📄 Loading fund report...")
@@ -66,10 +71,14 @@ def export_differences(fund_alias='pi', reference_date='2025-05-30'):
     loader = CSVLoader()
     fund_df, fund_metadata = loader.load_csv(fund_csv)
     
-    # Export processed fund data
-    fund_export_file = data_exports_dir / f"fund_data_processed_{fund_alias}_{reference_date.replace('-', '')}_{timestamp}.csv"
-    fund_df.to_csv(fund_export_file, index=False)
-    print(f"💾 Fund data exported to: {fund_export_file}")
+    # Export processed fund data only if requested
+    if export_data:
+        fund_export_file = data_exports_dir / f"fund_data_processed_{fund_alias}_{reference_date.replace('-', '')}_{timestamp}.csv"
+        fund_df.to_csv(fund_export_file, index=False)
+        print(f"💾 Fund data exported to: {fund_export_file}")
+    else:
+        print("⏭️  Skipping fund data export")
+        fund_export_file = None
     
     # Perform comparison
     print("⚖️  Performing comparison...")
@@ -106,42 +115,51 @@ def export_differences(fund_alias='pi', reference_date='2025-05-30'):
             
             diff_data.append(base_row)
         
-        # Create DataFrame and export
+        # Create DataFrame and export differences only if requested
         diff_df = pd.DataFrame(diff_data)
         
-        # Export differences with organized naming
-        diff_file = differences_dir / f"differences_{fund_alias}_{reference_date.replace('-', '')}_{timestamp}.csv"
-        diff_df.to_csv(diff_file, index=False)
-        print(f"✅ Differences exported to: {diff_file}")
+        if export_differences:
+            # Export differences with organized naming
+            diff_file = differences_dir / f"differences_{fund_alias}_{reference_date.replace('-', '')}_{timestamp}.csv"
+            diff_df.to_csv(diff_file, index=False)
+            print(f"✅ Differences exported to: {diff_file}")
+            
+            # Export sample of matching records for comparison
+            print("📊 Creating sample of identical records...")
+            
+            # Get common columns
+            common_cols = list(set(internal_df.columns) & set(fund_df.columns))
+            
+            # Merge to get identical records
+            merged = pd.merge(
+                internal_df, fund_df,
+                on=['NumeroContrato'],
+                how='inner',
+                suffixes=('_internal', '_fund')
+            )
+            
+            # Filter for identical records (not in differences)
+            diff_contratos = set(result.differences['different_records'].keys())
+            identical_records = merged[~merged['NumeroContrato'].astype(str).isin(diff_contratos)]
+            
+            # Sample 100 identical records
+            sample_identical = identical_records.head(100)
+            sample_file = differences_dir / f"identical_sample_{fund_alias}_{reference_date.replace('-', '')}_{timestamp}.csv"
+            sample_identical.to_csv(sample_file, index=False)
+            print(f"✅ Sample identical records exported to: {sample_file}")
+        else:
+            print("⏭️  Skipping differences export")
+            diff_file = None
+            sample_file = None
         
-        # Export sample of matching records for comparison
-        print("📊 Creating sample of identical records...")
-        
-        # Get common columns
-        common_cols = list(set(internal_df.columns) & set(fund_df.columns))
-        
-        # Merge to get identical records
-        merged = pd.merge(
-            internal_df, fund_df,
-            on=['NumeroContrato'],
-            how='inner',
-            suffixes=('_internal', '_fund')
-        )
-        
-        # Filter for identical records (not in differences)
-        diff_contratos = set(result.differences['different_records'].keys())
-        identical_records = merged[~merged['NumeroContrato'].astype(str).isin(diff_contratos)]
-        
-        # Sample 100 identical records
-        sample_identical = identical_records.head(100)
-        sample_file = differences_dir / f"identical_sample_{fund_alias}_{reference_date.replace('-', '')}_{timestamp}.csv"
-        sample_identical.to_csv(sample_file, index=False)
-        print(f"✅ Sample identical records exported to: {sample_file}")
-        
-        # Export merged dataset for further analysis
-        merged_file = data_exports_dir / f"merged_dataset_{fund_alias}_{reference_date.replace('-', '')}_{timestamp}.csv"
-        merged.to_csv(merged_file, index=False)
-        print(f"💾 Complete merged dataset exported to: {merged_file}")
+        # Export merged dataset for further analysis only if requested
+        if export_data:
+            merged_file = data_exports_dir / f"merged_dataset_{fund_alias}_{reference_date.replace('-', '')}_{timestamp}.csv"
+            merged.to_csv(merged_file, index=False)
+            print(f"💾 Complete merged dataset exported to: {merged_file}")
+        else:
+            print("⏭️  Skipping merged dataset export")
+            merged_file = None
         
         # Generate summary statistics
         print("\n" + "="*60)
@@ -176,20 +194,26 @@ def export_differences(fund_alias='pi', reference_date='2025-05-30'):
             print(f"  Max Difference: {valor_aquisicao_diffs.max():.2f}")
             print(f"  Min Difference: {valor_aquisicao_diffs.min():.2f}")
         
-        print(f"\n📁 Files created in organized structure:")
-        print(f"  📊 Differences: {diff_file}")
-        print(f"  📊 Identical sample: {sample_file}")
-        print(f"  💾 Internal data: {internal_export_file}")
-        print(f"  💾 Fund data: {fund_export_file}")
-        print(f"  💾 Merged dataset: {merged_file}")
+        print(f"\n📁 Files created:")
+        if export_differences and diff_file:
+            print(f"  📊 Differences: {diff_file}")
+        if export_differences and sample_file:
+            print(f"  📊 Identical sample: {sample_file}")
+        if export_data and internal_export_file:
+            print(f"  💾 Internal data: {internal_export_file}")
+        if export_data and fund_export_file:
+            print(f"  💾 Fund data: {fund_export_file}")
+        if export_data and merged_file:
+            print(f"  💾 Merged dataset: {merged_file}")
         
         return {
-            'differences_file': str(diff_file),
-            'identical_sample_file': str(sample_file),
-            'internal_data_file': str(internal_export_file),
-            'fund_data_file': str(fund_export_file),
-            'merged_dataset_file': str(merged_file),
-            'summary': result.summary
+            'differences_file': str(diff_file) if diff_file else None,
+            'identical_sample_file': str(sample_file) if sample_file else None,
+            'internal_data_file': str(internal_export_file) if internal_export_file else None,
+            'fund_data_file': str(fund_export_file) if fund_export_file else None,
+            'merged_dataset_file': str(merged_file) if merged_file else None,
+            'summary': result.summary,
+            'diff_df': diff_df  # Pass the DataFrame for further processing
         }
         
     else:
@@ -201,4 +225,6 @@ if __name__ == "__main__":
     import sys
     fund_alias = sys.argv[1] if len(sys.argv) > 1 else 'pi'
     reference_date = sys.argv[2] if len(sys.argv) > 2 else '2025-05-30'
-    export_differences(fund_alias, reference_date) 
+    export_data = '--no-data-export' not in sys.argv
+    export_differences = '--no-differences-export' not in sys.argv
+    export_differences(fund_alias, reference_date, export_data, export_differences) 

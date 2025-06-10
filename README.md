@@ -55,6 +55,39 @@ To export differences directly to Google Sheets:
 
 ### 1. Run commands
 
+# Run this:
+python run_fund_analysis.py --fund pi --format excel --output-on
+
+Examples:
+  # Run complete analysis for PI fund (creates all files)
+  python run_fund_analysis.py --fund pi --date 2025-05-30 --format excel
+  
+  # Only create the final Excel file (no intermediate files)
+  python run_fund_analysis.py --fund pi --format excel --output-only
+  
+  # Skip data exports, only create differences and final output
+  python run_fund_analysis.py --fund pi --format excel --no-data-export
+  
+  # Skip differences files, only create data exports and final output
+  python run_fund_analysis.py --fund pi --format csv --no-differences-export
+  
+  # Only create the Google Sheets output
+  python run_fund_analysis.py --fund pi --format google_sheets --output-only
+  
+  # Skip comparison step (use existing differences)
+  python run_fund_analysis.py --fund pi --skip-comparison --format csv --output-only
+  
+  # Run for AI fund with only final CSV output
+  python run_fund_analysis.py --fund ai --format csv --output-only
+
+File Creation Options:
+  --output-only           Only creates the final output file (Excel/CSV/Sheets)
+  --no-data-export        Skips: internal_data_*.csv, fund_data_*.csv, merged_dataset_*.csv  
+  --no-differences-export Skips: differences_*.csv, identical_sample_*.csv
+  
+  By default, all file types are created for full analysis capability.
+'''
+
 # Complete analysis for PI fund with Excel output
 python run_fund_analysis.py --fund pi --date 2025-05-30 --format excel
 
@@ -73,9 +106,7 @@ python run_fund_analysis.py --check-setup
 # List available funds
 python run_fund_analysis.py --list-funds
 
-### 3. Quick analysis
-
-
+### 2. Quick analysis
 # Quick analysis for PI fund (Excel output)
 python quick_analysis.py
 
@@ -88,13 +119,6 @@ python quick_analysis.py pi csv
 # Quick analysis with Google Sheets
 python quick_analysis.py pi google_sheets
 
-```bash
-# Get information about a CSV file
-python csv_compare_cli.py info "data/fund_report.csv"
-
-# Create a configuration file
-python csv_compare_cli.py create-config my_config.json
-```
 
 ## Key Features
 
