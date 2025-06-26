@@ -18,11 +18,15 @@ sys.path.insert(0, src_path)
 
 from core.csv_loader import CSVLoader
 from core.comparator import CSVComparator, ComparisonType
-from core.bigquery_loader import extract_internal_data
+from core.bigquery_loader import extract_internal_data, get_fund_info
 
 
-def export_differences(fund_alias='pi', reference_date='2025-05-30', export_data=True, export_differences=True):
+def export_differences(fund_alias='', fund_user_id='', reference_date='2025-05-30', 
+                      fund_csv_path=None, export_data=True, export_differences=True):
     """Export differing records to CSV for analysis."""
+    
+    if not fund_alias and not fund_user_id:
+        raise ValueError("Either fund_alias or fund_user_id must be provided")
     
     print("🔍 Running comparison and exporting differences...")
     
@@ -48,6 +52,25 @@ def export_differences(fund_alias='pi', reference_date='2025-05-30', export_data
         "key_columns": ["NumeroContrato"]
     }
     
+    # If using fund_user_id, get fund info first
+    fund_name = None
+    fund_identifier = fund_alias if fund_alias else fund_user_id
+    
+    if fund_user_id:
+        print(f"📋 Getting fund information for user ID: {fund_user_id}")
+        try:
+            fund_info_df, _ = get_fund_info(fund_user_id)
+            if len(fund_info_df) > 0:
+                fund_name = fund_info_df.iloc[0]['fund_name']
+                fund_alias = fund_info_df.iloc[0]['fund_alias'] or fund_user_id
+                print(f"✅ Found fund: {fund_name} (Alias: {fund_alias})")
+            else:
+                print(f"⚠️  No fund found for user ID: {fund_user_id}")
+                fund_alias = fund_user_id
+        except Exception as e:
+            print(f"⚠️  Could not get fund info: {e}")
+            fund_alias = fund_user_id
+    
     # Fund CSV file mapping - Add new fund aliases and their corresponding file paths here
     FUND_CSV_MAPPING = {
         'pi': "/Users/raphaellafeldt/Git/fidc_data_check/data/Posição em carteira cw - 20697244 - 2025_05_30.csv",
@@ -60,12 +83,13 @@ def export_differences(fund_alias='pi', reference_date='2025-05-30', export_data
     print("📊 Extracting internal data...")
     internal_df, internal_metadata = extract_internal_data(
         reference_date=reference_date,
-        fund_alias=fund_alias
+        fund_alias=fund_alias if fund_alias in ['pi', 'ai'] else '',
+        fund_user_id=fund_user_id
     )
     
     # Export internal data only if requested
     if export_data:
-        internal_export_file = data_exports_dir / f"internal_data_{fund_alias}_{reference_date.replace('-', '')}_{timestamp}.csv"
+        internal_export_file = data_exports_dir / f"internal_data_{fund_identifier}_{reference_date.replace('-', '')}_{timestamp}.csv"
         internal_df.to_csv(internal_export_file, index=False)
         print(f"💾 Internal data exported to: {internal_export_file}")
     else:
@@ -74,17 +98,24 @@ def export_differences(fund_alias='pi', reference_date='2025-05-30', export_data
     
     # Load fund CSV
     print("📄 Loading fund report...")
-    if fund_alias not in FUND_CSV_MAPPING:
-        raise ValueError(f"Unknown fund alias '{fund_alias}'. Available options: {list(FUND_CSV_MAPPING.keys())}")
     
-    fund_csv = FUND_CSV_MAPPING[fund_alias]
+    # Use provided CSV path or try to find from mapping
+    if fund_csv_path:
+        fund_csv = fund_csv_path
+        print(f"Using provided CSV file: {fund_csv}")
+    elif fund_alias in FUND_CSV_MAPPING:
+        fund_csv = FUND_CSV_MAPPING[fund_alias]
+    else:
+        raise ValueError(f"No CSV file provided and unknown fund alias '{fund_alias}'. "
+                        f"Available predefined options: {list(FUND_CSV_MAPPING.keys())} "
+                        f"or provide fund_csv_path parameter.")
     
     loader = CSVLoader()
     fund_df, fund_metadata = loader.load_csv(fund_csv)
     
     # Export processed fund data only if requested
     if export_data:
-        fund_export_file = data_exports_dir / f"fund_data_processed_{fund_alias}_{reference_date.replace('-', '')}_{timestamp}.csv"
+        fund_export_file = data_exports_dir / f"fund_data_processed_{fund_identifier}_{reference_date.replace('-', '')}_{timestamp}.csv"
         fund_df.to_csv(fund_export_file, index=False)
         print(f"💾 Fund data exported to: {fund_export_file}")
     else:
@@ -130,42 +161,41 @@ def export_differences(fund_alias='pi', reference_date='2025-05-30', export_data
         diff_df = pd.DataFrame(diff_data)
         
         if export_differences:
-            # Export differences with organized naming
-            diff_file = differences_dir / f"differences_{fund_alias}_{reference_date.replace('-', '')}_{timestamp}.csv"
+            diff_file = differences_dir / f"differences_{fund_identifier}_{reference_date.replace('-', '')}_{timestamp}.csv"
             diff_df.to_csv(diff_file, index=False)
-            print(f"✅ Differences exported to: {diff_file}")
-            
-            # Export sample of matching records for comparison
-            print("📊 Creating sample of identical records...")
-            
-            # Get common columns
-            common_cols = list(set(internal_df.columns) & set(fund_df.columns))
-            
-            # Merge to get identical records
-            merged = pd.merge(
-                internal_df, fund_df,
-                on=['NumeroContrato'],
-                how='inner',
-                suffixes=('_internal', '_fund')
-            )
-            
-            # Filter for identical records (not in differences)
-            diff_contratos = set(result.differences['different_records'].keys())
-            identical_records = merged[~merged['NumeroContrato'].astype(str).isin(diff_contratos)]
-            
-            # Sample 100 identical records
-            sample_identical = identical_records.head(100)
-            sample_file = differences_dir / f"identical_sample_{fund_alias}_{reference_date.replace('-', '')}_{timestamp}.csv"
-            sample_identical.to_csv(sample_file, index=False)
-            print(f"✅ Sample identical records exported to: {sample_file}")
+            print(f"💾 Differences exported to: {diff_file}")
         else:
             print("⏭️  Skipping differences export")
             diff_file = None
+        
+        # Also export a sample of identical records for verification only if requested
+        if export_differences and result.summary.get('identical_records', 0) > 0:
+            # Get sample of identical records
+            identical_sample_size = min(100, result.summary['identical_records'])
+            sample_file = differences_dir / f"identical_sample_{fund_identifier}_{reference_date.replace('-', '')}_{timestamp}.csv"
+            
+            # Create a sample of identical records for verification
+            merged = internal_df.merge(fund_df, on='NumeroContrato', how='inner', suffixes=('_Internal', '_Fund'))
+            identical_records = merged[
+                (abs(merged.get('ValorFace_Internal', 0) - merged.get('ValorFace_Fund', 0)) <= config_dict['float_tolerance']) &
+                (abs(merged.get('ValorAquisicao_Internal', 0) - merged.get('ValorAquisicao_Fund', 0)) <= config_dict['float_tolerance'])
+            ]
+            
+            if len(identical_records) > 0:
+                sample_identical = identical_records.sample(n=min(identical_sample_size, len(identical_records)), random_state=42)
+                sample_identical.to_csv(sample_file, index=False)
+                print(f"💾 Identical records sample exported to: {sample_file}")
+            else:
+                sample_file = None
+                print("⚠️  No identical records found for sample export")
+        else:
+            print("⏭️  Skipping identical sample export")
             sample_file = None
         
         # Export merged dataset for further analysis only if requested
         if export_data:
-            merged_file = data_exports_dir / f"merged_dataset_{fund_alias}_{reference_date.replace('-', '')}_{timestamp}.csv"
+            merged_file = data_exports_dir / f"merged_dataset_{fund_identifier}_{reference_date.replace('-', '')}_{timestamp}.csv"
+            merged = internal_df.merge(fund_df, on='NumeroContrato', how='outer', suffixes=('_Internal', '_Fund'))
             merged.to_csv(merged_file, index=False)
             print(f"💾 Complete merged dataset exported to: {merged_file}")
         else:
@@ -177,6 +207,10 @@ def export_differences(fund_alias='pi', reference_date='2025-05-30', export_data
         print("📈 DIFFERENCE ANALYSIS SUMMARY")
         print("="*60)
         
+        if fund_name:
+            print(f"Fund: {fund_name} ({fund_identifier})")
+        else:
+            print(f"Fund: {fund_identifier}")
         print(f"Total Fund Records: {len(fund_df):,}")
         print(f"Total Internal Records: {len(internal_df):,}")
         print(f"Common Records: {result.summary.get('common_cession_records', 0):,}")
@@ -224,18 +258,53 @@ def export_differences(fund_alias='pi', reference_date='2025-05-30', export_data
             'fund_data_file': str(fund_export_file) if fund_export_file else None,
             'merged_dataset_file': str(merged_file) if merged_file else None,
             'summary': result.summary,
-            'diff_df': diff_df  # Pass the DataFrame for further processing
+            'diff_df': diff_df,  # Pass the DataFrame for further processing
+            'fund_name': fund_name,
+            'fund_identifier': fund_identifier
         }
         
     else:
         print("✅ No differences found!")
-        return {'summary': result.summary}
+        return {
+            'summary': result.summary,
+            'fund_name': fund_name,
+            'fund_identifier': fund_identifier
+        }
 
 
 if __name__ == "__main__":
     import sys
-    fund_alias = sys.argv[1] if len(sys.argv) > 1 else 'pi'
-    reference_date = sys.argv[2] if len(sys.argv) > 2 else '2025-05-30'
-    export_data = '--no-data-export' not in sys.argv
-    export_differences = '--no-differences-export' not in sys.argv
-    export_differences(fund_alias, reference_date, export_data, export_differences) 
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='Export fund differences for analysis')
+    parser.add_argument('--fund-alias', help='Fund alias (pi, ai)')
+    parser.add_argument('--fund-user-id', help='Fund user ID')
+    parser.add_argument('--reference-date', default='2025-05-30', help='Reference date (YYYY-MM-DD)')
+    parser.add_argument('--fund-csv', help='Path to fund CSV file')
+    parser.add_argument('--no-data-export', action='store_true', help='Skip data export files')
+    parser.add_argument('--no-differences-export', action='store_true', help='Skip differences export files')
+    
+    args = parser.parse_args()
+    
+    # Ensure at least one fund identifier is provided
+    if not args.fund_alias and not args.fund_user_id:
+        # Try legacy argument parsing for backward compatibility
+        if len(sys.argv) > 1 and sys.argv[1] in ['pi', 'ai']:
+            args.fund_alias = sys.argv[1]
+            args.reference_date = sys.argv[2] if len(sys.argv) > 2 else '2025-05-30'
+        else:
+            print("❌ Error: Either --fund-alias or --fund-user-id must be provided")
+            parser.print_help()
+            sys.exit(1)
+    
+    export_data = not args.no_data_export
+    export_differences = not args.no_differences_export
+    
+    export_differences(
+        fund_alias=args.fund_alias or '',
+        fund_user_id=args.fund_user_id or '', 
+        reference_date=args.reference_date,
+        fund_csv_path=args.fund_csv,
+        export_data=export_data,
+        export_differences=export_differences
+    ) 

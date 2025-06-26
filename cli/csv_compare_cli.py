@@ -347,6 +347,8 @@ def _print_summary(result):
 @click.option('--fund', 
               type=click.Choice(['ai', 'pi']),
               help='Fund alias to compare with (ai or pi). If not specified, attempts to detect from filename.')
+@click.option('--fund-user-id',
+              help='Fund user ID to compare with (alternative to --fund)')
 @click.option('--credentials', 
               type=click.Path(exists=True),
               help='Path to Google Cloud service account JSON file')
@@ -365,7 +367,7 @@ def _print_summary(result):
               help='Path to comparison configuration JSON file')
 @click.option('--verbose', '-v', is_flag=True,
               help='Enable verbose output')
-def compare_with_internal(fund_csv, reference_date, fund, credentials, export_internal, 
+def compare_with_internal(fund_csv, reference_date, fund, fund_user_id, credentials, export_internal, 
                          output, output_format, config, verbose):
     """
     Compare fund CSV report with internal BigQuery data.
@@ -379,6 +381,9 @@ def compare_with_internal(fund_csv, reference_date, fund, credentials, export_in
         
         # Specify fund explicitly  
         csv-compare compare-with-internal fund_report.csv --fund pi
+        
+        # Use custom fund user ID
+        csv-compare compare-with-internal fund_report.csv --fund-user-id 12345678
         
         # Export internal data to CSV and generate HTML report
         csv-compare compare-with-internal fund_report.csv --export-internal --format html
@@ -402,8 +407,9 @@ def compare_with_internal(fund_csv, reference_date, fund, credentials, export_in
         comparisons_dir.mkdir(parents=True, exist_ok=True)
         data_exports_dir.mkdir(parents=True, exist_ok=True)
         
-        # Auto-detect fund if not specified
-        if not fund:
+        # Validate fund specification
+        if not fund and not fund_user_id:
+            # Auto-detect fund if not specified
             if '20697244' in fund_csv:
                 fund = 'pi'
                 if verbose:
@@ -417,26 +423,33 @@ def compare_with_internal(fund_csv, reference_date, fund, credentials, export_in
                 if verbose:
                     click.echo(f"⚠️  Could not detect fund from filename, defaulting to PI")
         
+        fund_identifier = fund or fund_user_id
+        
         if verbose:
             click.echo(f"ℹ️  Comparing fund report with internal BigQuery data...")
             click.echo(f"ℹ️  Fund report: {fund_csv}")
             click.echo(f"ℹ️  Reference date: {reference_date}")
+            if fund:
+                click.echo(f"ℹ️  Fund alias: {fund}")
+            if fund_user_id:
+                click.echo(f"ℹ️  Fund user ID: {fund_user_id}")
         
         # Extract internal data
         if verbose:
-            click.echo(f"ℹ️  Extracting internal data from BigQuery for fund '{fund}'...")
+            click.echo(f"ℹ️  Extracting internal data from BigQuery...")
         
         from core.bigquery_loader import extract_internal_data
         
         # Set default export path if requested
         if export_internal is True:
-            export_internal = data_exports_dir / f"internal_data_{fund}_{reference_date.replace('-', '')}_{timestamp}.csv"
+            export_internal = data_exports_dir / f"internal_data_{fund_identifier}_{reference_date.replace('-', '')}_{timestamp}.csv"
         elif export_internal and not Path(export_internal).is_absolute():
             export_internal = data_exports_dir / export_internal
             
         internal_df, internal_metadata = extract_internal_data(
             reference_date=reference_date,
-            fund_alias=fund,
+            fund_alias=fund or '',
+            fund_user_id=fund_user_id or '',
             output_csv=str(export_internal) if export_internal else None,
             credentials_path=credentials
         )
@@ -470,7 +483,7 @@ def compare_with_internal(fund_csv, reference_date, fund, credentials, export_in
         if output_format == 'html':
             # Set default output path
             if not output:
-                output = comparisons_dir / f"comparison_{fund}_{reference_date.replace('-', '')}_{timestamp}.html"
+                output = comparisons_dir / f"comparison_{fund_identifier}_{reference_date.replace('-', '')}_{timestamp}.html"
             elif not Path(output).is_absolute():
                 output = comparisons_dir / output
                 
@@ -483,7 +496,7 @@ def compare_with_internal(fund_csv, reference_date, fund, credentials, export_in
         elif output_format == 'json':
             # Set default output path
             if not output:
-                output = comparisons_dir / f"comparison_{fund}_{reference_date.replace('-', '')}_{timestamp}.json"
+                output = comparisons_dir / f"comparison_{fund_identifier}_{reference_date.replace('-', '')}_{timestamp}.json"
             elif not Path(output).is_absolute():
                 output = comparisons_dir / output
                 

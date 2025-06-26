@@ -17,7 +17,8 @@ src_path = os.path.join(project_root, 'src')
 sys.path.insert(0, project_root)
 sys.path.insert(0, src_path)
 
-def run_complete_analysis(fund_alias='pi', reference_date='2025-05-30', output_format='excel', 
+def run_complete_analysis(fund_alias='', fund_user_id='', reference_date='2025-05-30', 
+                         fund_csv_path=None, output_format='excel', 
                          skip_comparison=False, export_data=True, export_differences=True, 
                          output_only=False):
     """
@@ -26,7 +27,9 @@ def run_complete_analysis(fund_alias='pi', reference_date='2025-05-30', output_f
     2. Export formatted results (analyze_differences.py)
     
     Args:
-        fund_alias: Fund to analyze ('pi' or 'ai')
+        fund_alias: Fund alias ('pi' or 'ai', optional)
+        fund_user_id: Fund user ID (optional, required if fund_alias not provided)
+        fund_csv_path: Path to fund CSV file (optional)
         reference_date: Date for analysis
         output_format: Final output format ('excel', 'google_sheets', 'csv')
         skip_comparison: Skip data extraction and comparison step
@@ -35,13 +38,20 @@ def run_complete_analysis(fund_alias='pi', reference_date='2025-05-30', output_f
         output_only: If True, only creates the final output file (skips all intermediate files)
     """
     
+    if not fund_alias and not fund_user_id:
+        raise ValueError("Either fund_alias or fund_user_id must be provided")
+    
     if output_only:
         export_data = False
         export_differences = False
     
+    fund_identifier = fund_alias if fund_alias else fund_user_id
+    
     print("🚀 STARTING COMPLETE FUND ANALYSIS PIPELINE")
     print("="*60)
-    print(f"Fund: {fund_alias.upper()}")
+    print(f"Fund Alias: {fund_alias if fund_alias else 'N/A'}")
+    print(f"Fund User ID: {fund_user_id if fund_user_id else 'N/A'}")
+    print(f"Fund CSV: {fund_csv_path if fund_csv_path else 'Auto-detect/Predefined'}")
     print(f"Reference Date: {reference_date}")
     print(f"Output Format: {output_format}")
     print(f"Export Data Files: {'Yes' if export_data else 'No'}")
@@ -60,8 +70,10 @@ def run_complete_analysis(fund_alias='pi', reference_date='2025-05-30', output_f
             from export_differences import export_differences
             
             result = export_differences(
-                fund_alias=fund_alias, 
+                fund_alias=fund_alias,
+                fund_user_id=fund_user_id,
                 reference_date=reference_date,
+                fund_csv_path=fund_csv_path,
                 export_data=export_data,
                 export_differences=export_differences
             )
@@ -69,7 +81,12 @@ def run_complete_analysis(fund_alias='pi', reference_date='2025-05-30', output_f
             if result and ('differences_file' in result or 'diff_df' in result):
                 differences_file = result.get('differences_file')
                 diff_df = result.get('diff_df')  # Use DataFrame directly if no file was created
+                fund_name = result.get('fund_name')
+                fund_identifier = result.get('fund_identifier', fund_identifier)
+                
                 print(f"✅ Comparison completed successfully!")
+                if fund_name:
+                    print(f"📋 Fund: {fund_name} ({fund_identifier})")
                 if differences_file:
                     print(f"📁 Differences file: {differences_file}")
                 else:
@@ -85,6 +102,7 @@ def run_complete_analysis(fund_alias='pi', reference_date='2025-05-30', output_f
         print("⏭️  STEP 1: SKIPPED (using existing differences file)")
         differences_file = None
         diff_df = None
+        fund_identifier = fund_alias if fund_alias else fund_user_id
     
     print()
     
@@ -104,14 +122,14 @@ def run_complete_analysis(fund_alias='pi', reference_date='2025-05-30', output_f
             from datetime import datetime
             temp_dir = Path("reports/temp")
             temp_dir.mkdir(parents=True, exist_ok=True)
-            temp_file = temp_dir / f"temp_differences_{fund_alias}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+            temp_file = temp_dir / f"temp_differences_{fund_identifier}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
             diff_df.to_csv(temp_file, index=False)
             differences_file = str(temp_file)
             print(f"📄 Created temporary differences file for processing: {temp_file}")
         
         export_df = export_formatted_differences(
             differences_file=differences_file,
-            fund_alias=fund_alias,
+            fund_alias=fund_identifier,
             output_format=output_format
         )
         
@@ -166,6 +184,9 @@ Examples:
   # Run complete analysis for PI fund (creates all files)
   python run_fund_analysis.py --fund pi --date 2025-05-30 --format excel
   
+  # Run analysis for custom fund using user ID
+  python run_fund_analysis.py --fund-user-id 12345678 --fund-csv /path/to/fund.csv --date 2025-05-30 --format excel
+  
   # Only create the final Excel file (no intermediate files)
   python run_fund_analysis.py --fund pi --format excel --output-only
   
@@ -198,8 +219,17 @@ File Creation Options:
     parser.add_argument(
         '--fund', 
         choices=['pi', 'ai'], 
-        default='pi',
-        help='Fund alias to analyze (default: pi)'
+        help='Fund alias to analyze (pi or ai)'
+    )
+    
+    parser.add_argument(
+        '--fund-user-id',
+        help='Fund user ID to analyze (alternative to --fund)'
+    )
+    
+    parser.add_argument(
+        '--fund-csv',
+        help='Path to fund CSV file (required when using --fund-user-id)'
     )
     
     parser.add_argument(
@@ -264,6 +294,16 @@ File Creation Options:
         check_setup()
         return
     
+    # Validate fund specification
+    if not args.fund and not args.fund_user_id:
+        print("❌ Error: Either --fund or --fund-user-id must be provided")
+        parser.print_help()
+        sys.exit(1)
+    
+    if args.fund_user_id and not args.fund_csv:
+        print("❌ Error: --fund-csv is required when using --fund-user-id")
+        sys.exit(1)
+    
     # Validate date format
     try:
         datetime.strptime(args.date, '%Y-%m-%d')
@@ -273,7 +313,9 @@ File Creation Options:
     
     # Run the analysis
     success = run_complete_analysis(
-        fund_alias=args.fund,
+        fund_alias=args.fund or '',
+        fund_user_id=args.fund_user_id or '',
+        fund_csv_path=args.fund_csv,
         reference_date=args.date,
         output_format=args.format,
         skip_comparison=args.skip_comparison,
@@ -286,61 +328,38 @@ File Creation Options:
         sys.exit(1)
 
 def check_setup():
-    """Check if all required components are available."""
+    """Check if all required dependencies and files are available."""
     print("🔍 CHECKING SETUP")
-    print("="*40)
+    print("="*30)
     
     # Check Python packages
-    required_packages = [
-        'pandas', 'numpy', 'google-cloud-bigquery', 
-        'openpyxl', 'gspread', 'google-auth'
-    ]
-    
-    missing_packages = []
+    required_packages = ['pandas', 'google-cloud-bigquery', 'openpyxl']
     for package in required_packages:
         try:
             __import__(package.replace('-', '_'))
             print(f"✅ {package}")
         except ImportError:
-            print(f"❌ {package} (missing)")
-            missing_packages.append(package)
+            print(f"❌ {package} - Install with: pip install {package}")
     
-    # Check data files
-    print("\n📁 DATA FILES:")
-    data_dir = Path("data")
-    if data_dir.exists():
-        csv_files = list(data_dir.glob("*.csv"))
-        if csv_files:
-            for csv_file in csv_files:
-                print(f"✅ {csv_file.name}")
+    # Check directories
+    dirs_to_check = ['reports', 'sql', 'src']
+    for dir_name in dirs_to_check:
+        if Path(dir_name).exists():
+            print(f"✅ {dir_name}/ directory")
         else:
-            print("⚠️  No CSV files found in data/ directory")
-    else:
-        print("❌ data/ directory not found")
+            print(f"❌ {dir_name}/ directory missing")
     
-    # Check Google credentials
-    print("\n🔐 GOOGLE CREDENTIALS:")
-    if Path("google_credentials.json").exists():
-        print("✅ google_credentials.json found")
-    else:
-        print("⚠️  google_credentials.json not found (Google Sheets export won't work)")
-        print("   See GOOGLE_SHEETS_SETUP.md for setup instructions")
-    
-    # Check output directories
-    print("\n📂 OUTPUT DIRECTORIES:")
-    for dir_name in ["reports", "reports/differences", "reports/formatted_exports"]:
-        dir_path = Path(dir_name)
-        if dir_path.exists():
-            print(f"✅ {dir_name}/")
+    # Check SQL files
+    sql_files = ['extract_cession_orders.sql', 'get_fund_info.sql']
+    for sql_file in sql_files:
+        sql_path = Path("sql") / sql_file
+        if sql_path.exists():
+            print(f"✅ {sql_file}")
         else:
-            print(f"📁 {dir_name}/ (will be created)")
+            print(f"❌ {sql_file} missing")
     
-    print("\n" + "="*40)
-    if missing_packages:
-        print("⚠️  Install missing packages with:")
-        print(f"   pip install {' '.join(missing_packages)}")
-    else:
-        print("✅ All required packages are installed!")
+    print()
+    print("Setup check completed!")
 
 if __name__ == "__main__":
     main() 

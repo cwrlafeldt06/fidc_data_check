@@ -121,9 +121,40 @@ class BigQueryLoader:
         return output_path
 
 
+def get_fund_info(
+    fund_user_id: str,
+    credentials_path: Optional[str] = None,
+    project_id: str = "infinitepay-production"
+) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+    """
+    Get fund information by user ID.
+    
+    Args:
+        fund_user_id: Fund user ID to get information for
+        credentials_path: Optional path to service account credentials
+        project_id: Google Cloud project ID (defaults to infinitepay-production)
+        
+    Returns:
+        Tuple of (DataFrame with fund info, metadata dict)
+    """
+    loader = BigQueryLoader(credentials_path, project_id)
+    
+    # Use the fund info SQL query file
+    query_file = Path(__file__).parent.parent.parent / 'sql' / 'get_fund_info.sql'
+    
+    # Load data with parameters
+    df, metadata = loader.load_from_query_file(
+        str(query_file),
+        fund_user_id=fund_user_id
+    )
+    
+    return df, metadata
+
+
 def extract_internal_data(
     reference_date: str = '2025-05-30',
-    fund_alias: str = 'pi',
+    fund_alias: str = '',
+    fund_user_id: str = '',
     output_csv: Optional[str] = None,
     credentials_path: Optional[str] = None,
     project_id: str = "infinitepay-production"
@@ -133,7 +164,8 @@ def extract_internal_data(
     
     Args:
         reference_date: Reference date for filtering data
-        fund_alias: Fund alias ('ai' or 'pi') to filter data
+        fund_alias: Fund alias ('ai' or 'pi') to filter data (optional)
+        fund_user_id: Fund user ID to filter data (optional)
         output_csv: Optional path to save CSV file
         credentials_path: Optional path to service account credentials
         project_id: Google Cloud project ID (defaults to infinitepay-production)
@@ -141,6 +173,9 @@ def extract_internal_data(
     Returns:
         Tuple of (DataFrame, metadata dict)
     """
+    if not fund_alias and not fund_user_id:
+        raise ValueError("Either fund_alias or fund_user_id must be provided")
+    
     loader = BigQueryLoader(credentials_path, project_id)
     
     # Use the SQL query file
@@ -150,7 +185,8 @@ def extract_internal_data(
     df, metadata = loader.load_from_query_file(
         str(query_file),
         reference_date=reference_date,
-        fund_alias=fund_alias
+        fund_alias=fund_alias,
+        fund_user_id=fund_user_id
     )
     
     # Save to CSV if requested

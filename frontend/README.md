@@ -53,6 +53,8 @@ npm install
 
 ## Running the Application
 
+source venv/bin/activate
+
 ### Development Mode
 
 1. **Start the Backend Server** (in one terminal):

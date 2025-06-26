@@ -10,7 +10,7 @@ from datetime import datetime
 import sys
 import glob
 
-def export_formatted_differences(differences_file=None, fund_alias='pi', output_format='excel'):
+def export_formatted_differences(differences_file=None, fund_identifier='pi', output_format='excel'):
     """
     Export differences data in the requested format with specific columns:
     - id (NumeroContrato)
@@ -27,17 +27,28 @@ def export_formatted_differences(differences_file=None, fund_alias='pi', output_
         differences_dir = Path("reports/differences")
         if differences_dir.exists():
             # Find most recent differences file for the specified fund
-            pattern = f"differences_{fund_alias}_*.csv"
+            pattern = f"differences_{fund_identifier}_*.csv"
             files = list(differences_dir.glob(pattern))
             if not files:
                 # Try alternative patterns
-                pattern = f"{fund_alias}_fund_differences.csv"
+                pattern = f"{fund_identifier}_fund_differences.csv"
                 files = list(differences_dir.glob(pattern))
+            if not files:
+                # Try with legacy fund alias patterns
+                legacy_patterns = [
+                    f"differences_pi_*.csv",
+                    f"differences_ai_*.csv",
+                    "pi_fund_differences.csv",
+                    "ai_fund_differences.csv"
+                ]
+                for legacy_pattern in legacy_patterns:
+                    files.extend(list(differences_dir.glob(legacy_pattern)))
+            
             if files:
                 differences_file = max(files, key=lambda p: p.stat().st_mtime)
                 print(f"Using most recent differences file: {differences_file}")
             else:
-                print(f"❌ No differences files found for fund '{fund_alias}' in {differences_dir}")
+                print(f"❌ No differences files found for fund '{fund_identifier}' in {differences_dir}")
                 return
         else:
             print("❌ Reports directory not found. Run export_differences.py first.")
@@ -103,131 +114,132 @@ def export_formatted_differences(differences_file=None, fund_alias='pi', output_
     # Generate timestamp
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     
-    # Export based on requested format
-    if output_format.lower() == 'google_sheets':
-        success = export_to_google_sheets(export_df, fund_alias, timestamp)
-        if not success:
-            print("❌ Google Sheets export failed, falling back to Excel...")
-            output_format = 'excel'
+    # Export based on format
+    if output_format == 'google_sheets':
+        success = export_to_google_sheets(export_df, fund_identifier, timestamp, output_dir)
+    elif output_format == 'excel':
+        success = export_to_excel(export_df, fund_identifier, timestamp, output_dir)
+    elif output_format == 'csv':
+        success = export_to_csv(export_df, fund_identifier, timestamp, output_dir)
+    else:
+        print(f"❌ Unsupported output format: {output_format}")
+        return None
     
-    if output_format.lower() == 'excel':
-        success = export_to_excel(export_df, fund_alias, timestamp, output_dir)
-        if not success:
-            print("❌ Excel export failed, falling back to CSV...")
-            output_format = 'csv'
-    
-    if output_format.lower() == 'csv':
-        export_to_csv(export_df, fund_alias, timestamp, output_dir)
-    
-    return export_df
+    if success:
+        print(f"\n✅ Successfully exported {len(export_df):,} meaningful differences in {output_format} format")
+        return export_df
+    else:
+        print(f"\n❌ Export failed for {output_format} format")
+        return None
 
-def export_to_google_sheets(df, fund_alias, timestamp):
+
+def export_to_google_sheets(df, fund_identifier, timestamp, output_dir):
     """Export to Google Sheets."""
     try:
         import gspread
         from google.oauth2.service_account import Credentials
         
-        # Try to authenticate with Google Sheets
-        # You'll need to set up credentials - check if they exist
-        credentials_file = Path("google_credentials.json")
-        if not credentials_file.exists():
-            print("❌ Google credentials file not found. Please set up google_credentials.json")
+        # Load credentials
+        creds_file = "google_credentials.json"
+        if not Path(creds_file).exists():
+            print(f"❌ Google credentials file not found: {creds_file}")
+            print("   See GOOGLE_SHEETS_SETUP.md for setup instructions")
             return False
-            
-        # Set up the credentials
-        scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-        creds = Credentials.from_service_account_file(str(credentials_file), scopes=scope)
+        
+        # Define the scope
+        scope = ['https://spreadsheets.google.com/feeds',
+                'https://www.googleapis.com/auth/drive']
+        
+        # Create credentials object
+        creds = Credentials.from_service_account_file(creds_file, scopes=scope)
         client = gspread.authorize(creds)
         
-        # Create or open spreadsheet
-        spreadsheet_name = f"Fund_Differences_{fund_alias.upper()}_{timestamp}"
-        
-        try:
-            spreadsheet = client.create(spreadsheet_name)
-            print(f"📊 Created new Google Spreadsheet: {spreadsheet_name}")
-        except Exception as e:
-            print(f"❌ Could not create spreadsheet: {e}")
-            return False
-        
-        # Get the first worksheet and rename it
+        # Create spreadsheet
+        sheet_name = f"Fund Differences {fund_identifier} {timestamp}"
+        spreadsheet = client.create(sheet_name)
         worksheet = spreadsheet.sheet1
-        worksheet.update_title(fund_alias.upper())
         
-        # Convert DataFrame to list of lists for Google Sheets
-        data = [df.columns.tolist()] + df.values.tolist()
+        # Prepare data for upload
+        header = list(df.columns)
+        values = [header] + df.values.tolist()
         
-        # Update the worksheet
-        worksheet.update('A1', data)
+        # Upload to Google Sheets
+        worksheet.update('A1', values)
         
-        # Make the spreadsheet shareable (optional)
-        spreadsheet.share('', perm_type='anyone', role='reader')
+        # Format header row
+        worksheet.format('A1:E1', {
+            "backgroundColor": {"red": 0.2, "green": 0.6, "blue": 0.8},
+            "textFormat": {"foregroundColor": {"red": 1, "green": 1, "blue": 1}, "bold": True}
+        })
         
         print(f"✅ Successfully exported to Google Sheets: {spreadsheet.url}")
+        
+        # Also save the URL locally
+        url_file = output_dir / f"google_sheets_url_{fund_identifier}_{timestamp}.txt"
+        with open(url_file, 'w') as f:
+            f.write(f"Google Sheets URL:\n{spreadsheet.url}\n")
+            f.write(f"Sheet Name: {sheet_name}\n")
+            f.write(f"Created: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+        
         return True
         
     except ImportError:
-        print("❌ gspread or google-auth libraries not installed. Install with: pip install gspread google-auth")
+        print("❌ Google Sheets export requires: pip install gspread google-auth")
         return False
     except Exception as e:
         print(f"❌ Google Sheets export failed: {e}")
         return False
 
-def export_to_excel(df, fund_alias, timestamp, output_dir):
-    """Export to Excel file."""
+
+def export_to_excel(df, fund_identifier, timestamp, output_dir):
+    """Export to Excel file with formatting."""
     try:
-        import openpyxl
-        from openpyxl.utils.dataframe import dataframe_to_rows
-        from openpyxl.styles import Font, PatternFill
+        excel_file = output_dir / f"fund_differences_{fund_identifier}_{timestamp}.xlsx"
         
-        # Create Excel file
-        excel_file = output_dir / f"fund_differences_{fund_alias}_{timestamp}.xlsx"
+        # Create Excel writer with styling
+        with pd.ExcelWriter(excel_file, engine='openpyxl') as writer:
+            df.to_excel(writer, sheet_name='Differences', index=False)
+            
+            # Get the workbook and worksheet for formatting
+            workbook = writer.book
+            worksheet = writer.sheets['Differences']
+            
+            # Format headers
+            from openpyxl.styles import Font, PatternFill, Alignment
+            
+            header_font = Font(bold=True, color="FFFFFF")
+            header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+            
+            for cell in worksheet[1]:
+                cell.font = header_font
+                cell.fill = header_fill
+                cell.alignment = Alignment(horizontal="center")
+            
+            # Auto-adjust column widths
+            for column in worksheet.columns:
+                max_length = 0
+                column_letter = column[0].column_letter
+                for cell in column:
+                    try:
+                        if len(str(cell.value)) > max_length:
+                            max_length = len(str(cell.value))
+                    except:
+                        pass
+                adjusted_width = min(max_length + 2, 50)
+                worksheet.column_dimensions[column_letter].width = adjusted_width
         
-        # Create workbook and worksheet
-        wb = openpyxl.Workbook()
-        ws = wb.active
-        ws.title = fund_alias.upper()
-        
-        # Add data to worksheet
-        for r in dataframe_to_rows(df, index=False, header=True):
-            ws.append(r)
-        
-        # Format the header row
-        header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
-        header_font = Font(color="FFFFFF", bold=True)
-        
-        for cell in ws[1]:
-            cell.fill = header_fill
-            cell.font = header_font
-        
-        # Auto-adjust column widths
-        for column in ws.columns:
-            max_length = 0
-            column_letter = column[0].column_letter
-            for cell in column:
-                try:
-                    if len(str(cell.value)) > max_length:
-                        max_length = len(str(cell.value))
-                except:
-                    pass
-            adjusted_width = min(max_length + 2, 50)
-            ws.column_dimensions[column_letter].width = adjusted_width
-        
-        # Save the file
-        wb.save(excel_file)
         print(f"✅ Successfully exported to Excel: {excel_file}")
         return True
         
-    except ImportError:
-        print("❌ openpyxl library not installed. Install with: pip install openpyxl")
-        return False
     except Exception as e:
         print(f"❌ Excel export failed: {e}")
         return False
 
-def export_to_csv(df, fund_alias, timestamp, output_dir):
+
+def export_to_csv(df, fund_identifier, timestamp, output_dir):
     """Export to CSV file."""
     try:
-        csv_file = output_dir / f"fund_differences_{fund_alias}_{timestamp}.csv"
+        csv_file = output_dir / f"fund_differences_{fund_identifier}_{timestamp}.csv"
         df.to_csv(csv_file, index=False)
         print(f"✅ Successfully exported to CSV: {csv_file}")
         return True
@@ -241,7 +253,7 @@ if __name__ == "__main__":
     
     parser = argparse.ArgumentParser(description='Export fund differences in formatted output')
     parser.add_argument('--file', help='Specific differences file to process')
-    parser.add_argument('--fund', default='pi', help='Fund alias (default: pi)')
+    parser.add_argument('--fund', default='pi', help='Fund identifier (default: pi)')
     parser.add_argument('--format', choices=['google_sheets', 'excel', 'csv'], default='excel', 
                        help='Output format (default: excel)')
     

@@ -105,10 +105,72 @@ app.post('/api/upload-and-analyze', upload.fields([
   }
 });
 
+// Get fund information by user ID
+app.get('/api/fund-info/:fundUserId', async (req, res) => {
+  try {
+    const { fundUserId } = req.params;
+    
+    if (!fundUserId) {
+      return res.status(400).json({ 
+        error: 'Fund user ID is required' 
+      });
+    }
+
+    // Call Python script to get fund info
+    const projectRoot = path.join(__dirname, '..', '..');
+    const pythonScript = path.join(projectRoot, 'scripts', 'get_fund_info.py');
+    
+    const pythonProcess = spawn('python', [pythonScript, fundUserId], {
+      cwd: projectRoot,
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+    
+    let stdout = '';
+    let stderr = '';
+    
+    pythonProcess.stdout.on('data', (data) => {
+      stdout += data.toString();
+    });
+    
+    pythonProcess.stderr.on('data', (data) => {
+      stderr += data.toString();
+    });
+    
+    pythonProcess.on('close', (code) => {
+      if (code === 0) {
+        try {
+          const fundInfo = JSON.parse(stdout);
+          res.json(fundInfo);
+        } catch (parseError) {
+          console.error('Failed to parse fund info response:', parseError);
+          res.status(500).json({ 
+            error: 'Failed to parse fund information',
+            details: stdout 
+          });
+        }
+      } else {
+        console.error(`Fund info script exited with code ${code}`);
+        console.error('stderr:', stderr);
+        res.status(500).json({ 
+          error: 'Failed to get fund information',
+          details: stderr 
+        });
+      }
+    });
+
+  } catch (error) {
+    console.error('Fund info error:', error);
+    res.status(500).json({ 
+      error: 'Failed to get fund information',
+      details: error.message 
+    });
+  }
+});
+
 // Upload files for fund analysis
 app.post('/api/upload-fund-analysis', upload.single('fundFile'), async (req, res) => {
   try {
-    const { fundAlias = 'pi', referenceDate = '2025-05-30', outputFormat = 'excel' } = req.body;
+    const { fundAlias, fundUserId, fundName, referenceDate = '2025-05-30', outputFormat = 'excel' } = req.body;
     
     if (!req.file) {
       return res.status(400).json({ 
@@ -120,7 +182,7 @@ app.post('/api/upload-fund-analysis', upload.single('fundFile'), async (req, res
     const jobId = uuidv4();
     
     // Store job info
-    analysisJobs.set(jobId, {
+    const jobInfo = {
       id: jobId,
       status: 'processing',
       startTime: new Date(),
@@ -128,22 +190,38 @@ app.post('/api/upload-fund-analysis', upload.single('fundFile'), async (req, res
         fundFile: req.file.filename
       },
       analysisType: 'fund',
-      fundAlias,
       referenceDate,
       outputFormat,
       progress: 0
-    });
+    };
+
+    if (fundAlias) {
+      jobInfo.fundAlias = fundAlias;
+    }
+    if (fundUserId) {
+      jobInfo.fundUserId = fundUserId;
+    }
+    if (fundName) {
+      jobInfo.fundName = fundName;
+    }
+
+    analysisJobs.set(jobId, jobInfo);
 
     // Start fund analysis in background
-    runFundAnalysis(jobId, req.file.path, fundAlias, referenceDate, outputFormat);
+    runFundAnalysis(jobId, req.file.path, { fundAlias, fundUserId, fundName }, referenceDate, outputFormat);
     
-    res.json({
+    const responseData = {
       jobId,
       message: 'Fund analysis started',
       file: req.file.originalname,
-      fundAlias,
       referenceDate
-    });
+    };
+    
+    if (fundAlias) responseData.fundAlias = fundAlias;
+    if (fundUserId) responseData.fundUserId = fundUserId;
+    if (fundName) responseData.fundName = fundName;
+    
+    res.json(responseData);
 
   } catch (error) {
     console.error('Fund analysis upload error:', error);
@@ -320,26 +398,33 @@ function runAnalysis(jobId, file1Path, file2Path, analysisType, outputFormat) {
   });
 }
 
-function runFundAnalysis(jobId, fundFilePath, fundAlias, referenceDate, outputFormat) {
+function runFundAnalysis(jobId, fundFilePath, fundInfo, referenceDate, outputFormat) {
   const job = analysisJobs.get(jobId);
   const projectRoot = path.join(__dirname, '..', '..');
+  const { fundAlias, fundUserId, fundName } = fundInfo;
   
   // Copy the uploaded file to the data directory with the expected naming
   const dataDir = path.join(projectRoot, 'data');
-  const targetFileName = `uploaded_fund_${fundAlias}_${Date.now()}.csv`;
+  const fundIdentifier = fundAlias || fundUserId || 'unknown';
+  const targetFileName = `uploaded_fund_${fundIdentifier}_${Date.now()}.csv`;
   const targetPath = path.join(dataDir, targetFileName);
   
   fs.copy(fundFilePath, targetPath)
     .then(() => {
       // Use the fund analysis script
       const pythonScript = path.join(projectRoot, 'scripts', 'run_fund_analysis.py');
-      const args = [
-        pythonScript,
-        '--fund', fundAlias,
-        '--date', referenceDate,
-        '--format', outputFormat,
-        '--output-only'
-      ];
+      const args = [pythonScript];
+      
+      if (fundAlias) {
+        args.push('--fund', fundAlias);
+      } else if (fundUserId) {
+        args.push('--fund-user-id', fundUserId);
+        args.push('--fund-csv', targetPath);
+      }
+      
+      args.push('--date', referenceDate);
+      args.push('--format', outputFormat);
+      args.push('--output-only');
       
       console.log(`Starting fund analysis for job ${jobId}`);
       console.log(`Command: python ${args.join(' ')}`);
