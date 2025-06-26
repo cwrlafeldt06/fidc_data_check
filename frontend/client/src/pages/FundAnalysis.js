@@ -196,6 +196,7 @@ const FundAnalysis = () => {
               {/* Predefined Fund Selection */}
               {fundType === 'predefined' && (
                 <div className="ml-6 space-y-2">
+                  {/* Configured Funds */}
                   <label className="flex items-center">
                     <input
                       type="radio"
@@ -225,6 +226,135 @@ const FundAnalysis = () => {
                     <span className="ml-2 text-sm text-gray-700">
                       AI Fund
                       <span className="block text-xs text-gray-500">Fund ID: 19441218</span>
+                    </span>
+                  </label>
+
+                  {/* New Fund Options */}
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="fundAlias"
+                      value="akira1"
+                      checked={fundAlias === 'akira1'}
+                      onChange={(e) => setFundAlias(e.target.value)}
+                      className="h-4 w-4 text-primary-600 border-gray-300 focus:ring-primary-500"
+                      disabled={isAnalyzing}
+                    />
+                    <span className="ml-2 text-sm text-gray-700">
+                      Akira 1
+                      <span className="block text-xs text-gray-500">Fund ID: 942732</span>
+                    </span>
+                  </label>
+
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="fundAlias"
+                      value="akira2"
+                      checked={fundAlias === 'akira2'}
+                      onChange={(e) => setFundAlias(e.target.value)}
+                      className="h-4 w-4 text-primary-600 border-gray-300 focus:ring-primary-500"
+                      disabled={isAnalyzing}
+                    />
+                    <span className="ml-2 text-sm text-gray-700">
+                      Akira 2
+                      <span className="block text-xs text-gray-500">Fund ID: 942740</span>
+                    </span>
+                  </label>
+
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="fundAlias"
+                      value="bigpicture1"
+                      checked={fundAlias === 'bigpicture1'}
+                      onChange={(e) => setFundAlias(e.target.value)}
+                      className="h-4 w-4 text-primary-600 border-gray-300 focus:ring-primary-500"
+                      disabled={isAnalyzing}
+                    />
+                    <span className="ml-2 text-sm text-gray-700">
+                      Big Picture 1
+                      <span className="block text-xs text-gray-500">Fund ID: 16548294</span>
+                    </span>
+                  </label>
+
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="fundAlias"
+                      value="bigpicture2"
+                      checked={fundAlias === 'bigpicture2'}
+                      onChange={(e) => setFundAlias(e.target.value)}
+                      className="h-4 w-4 text-primary-600 border-gray-300 focus:ring-primary-500"
+                      disabled={isAnalyzing}
+                    />
+                    <span className="ml-2 text-sm text-gray-700">
+                      Big Picture 2
+                      <span className="block text-xs text-gray-500">Fund ID: 16548300</span>
+                    </span>
+                  </label>
+
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="fundAlias"
+                      value="bigpicture3"
+                      checked={fundAlias === 'bigpicture3'}
+                      onChange={(e) => setFundAlias(e.target.value)}
+                      className="h-4 w-4 text-primary-600 border-gray-300 focus:ring-primary-500"
+                      disabled={isAnalyzing}
+                    />
+                    <span className="ml-2 text-sm text-gray-700">
+                      Big Picture 3
+                      <span className="block text-xs text-gray-500">Fund ID: 16548303</span>
+                    </span>
+                  </label>
+
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="fundAlias"
+                      value="bigpicture4"
+                      checked={fundAlias === 'bigpicture4'}
+                      onChange={(e) => setFundAlias(e.target.value)}
+                      className="h-4 w-4 text-primary-600 border-gray-300 focus:ring-primary-500"
+                      disabled={isAnalyzing}
+                    />
+                    <span className="ml-2 text-sm text-gray-700">
+                      Big Picture 4
+                      <span className="block text-xs text-gray-500">Fund ID: 16548312</span>
+                    </span>
+                  </label>
+
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="fundAlias"
+                      value="kickass1"
+                      checked={fundAlias === 'kickass1'}
+                      onChange={(e) => setFundAlias(e.target.value)}
+                      className="h-4 w-4 text-primary-600 border-gray-300 focus:ring-primary-500"
+                      disabled={isAnalyzing}
+                    />
+                    <span className="ml-2 text-sm text-gray-700">
+                      Kickass 1
+                      <span className="block text-xs text-gray-500">Fund ID: 405741</span>
+                    </span>
+                  </label>
+
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="fundAlias"
+                      value="kickass2"
+                      checked={fundAlias === 'kickass2'}
+                      onChange={(e) => setFundAlias(e.target.value)}
+                      className="h-4 w-4 text-primary-600 border-gray-300 focus:ring-primary-500"
+                      disabled={isAnalyzing}
+                    />
+                    <span className="ml-2 text-sm text-gray-700">
+                      Kickass 2
+                      <span className="block text-xs text-gray-500">Fund ID: 405743</span>
                     </span>
                   </label>
                 </div>

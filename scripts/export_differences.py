@@ -71,19 +71,20 @@ def export_differences(fund_alias='', fund_user_id='', reference_date='2025-05-3
             print(f"⚠️  Could not get fund info: {e}")
             fund_alias = fund_user_id
     
-    # Fund CSV file mapping - Add new fund aliases and their corresponding file paths here
+    # Fund CSV file mapping - Only PI and AI have predefined CSV files
+    # Other funds (akira1, akira2, bigpicture1, etc.) require CSV file upload
     FUND_CSV_MAPPING = {
         'pi': "/Users/raphaellafeldt/Git/fidc_data_check/data/Posição em carteira cw - 20697244 - 2025_05_30.csv",
         'ai': "/Users/raphaellafeldt/Git/fidc_data_check/data/Posição em carteira cw - 19441218 - 2025_05_30.csv",
-        # 'new_fund_alias': "/path/to/new/fund/file.csv",
-        # 'another_fund': "/path/to/another/fund/file.csv",
     }
     
     # Extract internal data
     print("📊 Extracting internal data...")
+    
+    # All fund aliases can be used directly - the SQL query will filter by alias
     internal_df, internal_metadata = extract_internal_data(
         reference_date=reference_date,
-        fund_alias=fund_alias if fund_alias in ['pi', 'ai'] else '',
+        fund_alias=fund_alias,
         fund_user_id=fund_user_id
     )
     

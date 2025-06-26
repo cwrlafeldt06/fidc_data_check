@@ -23,7 +23,8 @@ def main():
         first_arg = sys.argv[1].lower()
         
         # Check if it's a predefined fund or a custom fund ID
-        if first_arg in ['pi', 'ai']:
+        predefined_funds = ['pi', 'ai', 'akira1', 'akira2', 'bigpicture1', 'bigpicture2', 'bigpicture3', 'bigpicture4', 'kickass1', 'kickass2']
+        if first_arg in predefined_funds:
             fund_alias = first_arg
         elif first_arg.isdigit():
             # Assume it's a custom fund user ID
@@ -43,7 +44,7 @@ def main():
                 output_format = sys.argv[3].lower()
         else:
             print("❌ Invalid fund specification")
-            print("Usage for predefined funds: python quick_analysis.py [pi|ai] [excel|csv|google_sheets]")
+            print("Usage for predefined funds: python quick_analysis.py [pi|ai|akira1|akira2|bigpicture1|bigpicture2|bigpicture3|bigpicture4|kickass1|kickass2] [excel|csv|google_sheets]")
             print("Usage for custom funds: python quick_analysis.py <fund_user_id> <csv_file_path> [excel|csv|google_sheets]")
             sys.exit(1)
     
@@ -54,14 +55,14 @@ def main():
     # Validate fund specification
     if not fund_alias and not fund_user_id:
         print("❌ Either fund alias or fund user ID must be provided")
-        print("Usage for predefined funds: python quick_analysis.py [pi|ai] [excel|csv|google_sheets]")
+        print("Usage for predefined funds: python quick_analysis.py [pi|ai|akira1|akira2|bigpicture1|bigpicture2|bigpicture3|bigpicture4|kickass1|kickass2] [excel|csv|google_sheets]")
         print("Usage for custom funds: python quick_analysis.py <fund_user_id> <csv_file_path> [excel|csv|google_sheets]")
         sys.exit(1)
     
     # Validate output format
     if output_format not in ['excel', 'csv', 'google_sheets']:
         print("❌ Format must be 'excel', 'csv', or 'google_sheets'")
-        print("Usage for predefined funds: python quick_analysis.py [pi|ai] [excel|csv|google_sheets]")
+        print("Usage for predefined funds: python quick_analysis.py [pi|ai|akira1|akira2|bigpicture1|bigpicture2|bigpicture3|bigpicture4|kickass1|kickass2] [excel|csv|google_sheets]")
         print("Usage for custom funds: python quick_analysis.py <fund_user_id> <csv_file_path> [excel|csv|google_sheets]")
         sys.exit(1)
     

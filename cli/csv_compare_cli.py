@@ -345,8 +345,8 @@ def _print_summary(result):
 @click.option('--reference-date', default='2025-05-30',
               help='Reference date for BigQuery data extraction')
 @click.option('--fund', 
-              type=click.Choice(['ai', 'pi']),
-              help='Fund alias to compare with (ai or pi). If not specified, attempts to detect from filename.')
+              type=click.Choice(['ai', 'pi', 'akira1', 'akira2', 'bigpicture1', 'bigpicture2', 'bigpicture3', 'bigpicture4', 'kickass1', 'kickass2']),
+              help='Fund alias to compare with. If not specified, attempts to detect from filename.')
 @click.option('--fund-user-id',
               help='Fund user ID to compare with (alternative to --fund)')
 @click.option('--credentials', 

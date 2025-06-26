@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 from datetime import datetime
 import subprocess
+import importlib.util
 
 # Add project root and src to path for imports
 project_root = os.path.join(os.path.dirname(__file__), '..')
@@ -67,7 +68,14 @@ def run_complete_analysis(fund_alias='', fund_user_id='', reference_date='2025-0
         
         try:
             # Import and run the export_differences function
-            from export_differences import export_differences
+            # Use absolute import to get the module from the scripts directory
+            import importlib.util
+            import os
+            export_diff_path = os.path.join(os.path.dirname(__file__), 'export_differences.py')
+            spec = importlib.util.spec_from_file_location("export_differences", export_diff_path)
+            export_diff_module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(export_diff_module)
+            export_differences = export_diff_module.export_differences
             
             result = export_differences(
                 fund_alias=fund_alias,
@@ -112,7 +120,12 @@ def run_complete_analysis(fund_alias='', fund_user_id='', reference_date='2025-0
     
     try:
         # Import and run the export_formatted_differences function
-        from analyze_differences import export_formatted_differences
+        # Use absolute import to get the module from the scripts directory
+        analyze_diff_path = os.path.join(os.path.dirname(__file__), 'analyze_differences.py')
+        spec = importlib.util.spec_from_file_location("analyze_differences", analyze_diff_path)
+        analyze_diff_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(analyze_diff_module)
+        export_formatted_differences = analyze_diff_module.export_formatted_differences
         
         # If we have a DataFrame from step 1 but no file, we need to handle this differently
         if not skip_comparison and diff_df is not None and differences_file is None:
@@ -129,7 +142,7 @@ def run_complete_analysis(fund_alias='', fund_user_id='', reference_date='2025-0
         
         export_df = export_formatted_differences(
             differences_file=differences_file,
-            fund_alias=fund_identifier,
+            fund_identifier=fund_identifier,
             output_format=output_format
         )
         
@@ -218,8 +231,8 @@ File Creation Options:
     
     parser.add_argument(
         '--fund', 
-        choices=['pi', 'ai'], 
-        help='Fund alias to analyze (pi or ai)'
+        choices=['pi', 'ai', 'akira1', 'akira2', 'bigpicture1', 'bigpicture2', 'bigpicture3', 'bigpicture4', 'kickass1', 'kickass2'], 
+        help='Fund alias to analyze'
     )
     
     parser.add_argument(
