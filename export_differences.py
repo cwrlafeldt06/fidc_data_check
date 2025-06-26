@@ -45,6 +45,14 @@ def export_differences(fund_alias='pi', reference_date='2025-05-30', export_data
         "key_columns": ["NumeroContrato"]
     }
     
+    # Fund CSV file mapping - Add new fund aliases and their corresponding file paths here
+    FUND_CSV_MAPPING = {
+        'pi': "/Users/raphaellafeldt/Git/fidc_data_check/data/Posição em carteira cw - 20697244 - 2025_05_30.csv",
+        'ai': "/Users/raphaellafeldt/Git/fidc_data_check/data/Posição em carteira cw - 19441218 - 2025_05_30.csv",
+        # 'new_fund_alias': "/path/to/new/fund/file.csv",
+        # 'another_fund': "/path/to/another/fund/file.csv",
+    }
+    
     # Extract internal data
     print("📊 Extracting internal data...")
     internal_df, internal_metadata = extract_internal_data(
@@ -63,11 +71,11 @@ def export_differences(fund_alias='pi', reference_date='2025-05-30', export_data
     
     # Load fund CSV
     print("📄 Loading fund report...")
-    if fund_alias == 'pi':
-        fund_csv = "/Users/raphaellafeldt/Git/fidc_data_check/data/Posição em carteira cw - 20697244 - 2025_05_30.csv"
-    else:  # ai fund
-        fund_csv = "/Users/raphaellafeldt/Git/fidc_data_check/data/Posição em carteira cw - 19441218 - 2025_05_30.csv"
-        
+    if fund_alias not in FUND_CSV_MAPPING:
+        raise ValueError(f"Unknown fund alias '{fund_alias}'. Available options: {list(FUND_CSV_MAPPING.keys())}")
+    
+    fund_csv = FUND_CSV_MAPPING[fund_alias]
+    
     loader = CSVLoader()
     fund_df, fund_metadata = loader.load_csv(fund_csv)
     
