@@ -9,6 +9,7 @@ import os
 import sys
 from pathlib import Path
 from datetime import datetime
+import numpy as np
 
 # Add project root and src to path for imports
 project_root = os.path.join(os.path.dirname(__file__), '..')
@@ -19,6 +20,7 @@ sys.path.insert(0, src_path)
 from core.csv_loader import CSVLoader
 from core.comparator import CSVComparator, ComparisonType
 from core.bigquery_loader import extract_internal_data, get_fund_info
+from core.fund_config import get_fund_config
 
 
 def export_differences(fund_alias='', fund_user_id='', reference_date='2025-05-30', 
@@ -71,6 +73,16 @@ def export_differences(fund_alias='', fund_user_id='', reference_date='2025-05-3
             print(f"⚠️  Could not get fund info: {e}")
             fund_alias = fund_user_id
     
+    # Convert command-line fund alias to database alias if using predefined funds
+    database_fund_alias = fund_alias
+    if fund_alias and not fund_user_id:
+        fund_config = get_fund_config(fund_alias)
+        if fund_config:
+            database_fund_alias = fund_config['alias']
+            print(f"📋 Using database alias '{database_fund_alias}' for fund '{fund_alias}'")
+        else:
+            print(f"⚠️  Fund '{fund_alias}' not found in predefined configurations")
+    
     # Fund CSV file mapping - Only PI and AI have predefined CSV files
     # Other funds (akira1, akira2, bigpicture1, etc.) require CSV file upload
     FUND_CSV_MAPPING = {
@@ -81,10 +93,10 @@ def export_differences(fund_alias='', fund_user_id='', reference_date='2025-05-3
     # Extract internal data
     print("📊 Extracting internal data...")
     
-    # All fund aliases can be used directly - the SQL query will filter by alias
+    # Use the database alias for BigQuery filtering
     internal_df, internal_metadata = extract_internal_data(
         reference_date=reference_date,
-        fund_alias=fund_alias,
+        fund_alias=database_fund_alias,
         fund_user_id=fund_user_id
     )
     

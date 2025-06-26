@@ -61,12 +61,6 @@ export const apiService = {
     if (options.fundAlias) {
       formData.append('fundAlias', options.fundAlias);
     }
-    if (options.fundUserId) {
-      formData.append('fundUserId', options.fundUserId);
-    }
-    if (options.fundName) {
-      formData.append('fundName', options.fundName);
-    }
     formData.append('referenceDate', options.referenceDate || '2025-05-30');
     formData.append('outputFormat', options.outputFormat || 'excel');
 
@@ -76,9 +70,6 @@ export const apiService = {
       },
     });
   },
-
-  // Get fund information by user ID
-  getFundInfo: (fundUserId) => api.get(`/fund-info/${fundUserId}`),
 
   // Get analysis status
   getAnalysisStatus: (jobId) => api.get(`/analysis/${jobId}`),

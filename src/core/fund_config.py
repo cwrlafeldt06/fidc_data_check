@@ -10,14 +10,14 @@ PREDEFINED_FUNDS = {
         'alias': 'pi',
         'name': 'PI Fund',
         'display_name': 'PI Fund',
-        'description': 'PI Fund (Legacy)'
+        'description': 'PI Fund'
     },
     'ai': {
         'user_id': 19441218,
         'alias': 'ai', 
         'name': 'AI Fund',
         'display_name': 'AI Fund',
-        'description': 'AI Fund (Legacy)'
+        'description': 'AI Fund'
     },
     'akira1': {
         'user_id': 942732,
@@ -62,14 +62,14 @@ PREDEFINED_FUNDS = {
         'description': 'Big Picture Fund 4'
     },
     'kickass1': {
-        'user_id': None,  # To be filled with actual user ID
+        'user_id': 405741,  # Updated with actual user ID
         'alias': 'kickass_1',
         'name': 'Kickass 1',
         'display_name': 'Kickass 1',
         'description': 'Kickass Fund 1'
     },
     'kickass2': {
-        'user_id': None,  # To be filled with actual user ID
+        'user_id': 405743,  # Updated with actual user ID
         'alias': 'kickass_2',
         'name': 'Kickass 2',
         'display_name': 'Kickass 2',

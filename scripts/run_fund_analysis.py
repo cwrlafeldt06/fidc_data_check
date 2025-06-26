@@ -28,9 +28,7 @@ def run_complete_analysis(fund_alias='', fund_user_id='', reference_date='2025-0
     2. Export formatted results (analyze_differences.py)
     
     Args:
-        fund_alias: Fund alias ('pi' or 'ai', optional)
-        fund_user_id: Fund user ID (optional, required if fund_alias not provided)
-        fund_csv_path: Path to fund CSV file (optional)
+        fund_alias: Fund alias ('pi', 'ai', 'akira1', etc.)
         reference_date: Date for analysis
         output_format: Final output format ('excel', 'google_sheets', 'csv')
         skip_comparison: Skip data extraction and comparison step
@@ -39,20 +37,16 @@ def run_complete_analysis(fund_alias='', fund_user_id='', reference_date='2025-0
         output_only: If True, only creates the final output file (skips all intermediate files)
     """
     
-    if not fund_alias and not fund_user_id:
-        raise ValueError("Either fund_alias or fund_user_id must be provided")
+    if not fund_alias:
+        raise ValueError("Fund alias must be provided")
     
     if output_only:
         export_data = False
         export_differences = False
     
-    fund_identifier = fund_alias if fund_alias else fund_user_id
-    
     print("🚀 STARTING COMPLETE FUND ANALYSIS PIPELINE")
     print("="*60)
-    print(f"Fund Alias: {fund_alias if fund_alias else 'N/A'}")
-    print(f"Fund User ID: {fund_user_id if fund_user_id else 'N/A'}")
-    print(f"Fund CSV: {fund_csv_path if fund_csv_path else 'Auto-detect/Predefined'}")
+    print(f"Fund Alias: {fund_alias}")
     print(f"Reference Date: {reference_date}")
     print(f"Output Format: {output_format}")
     print(f"Export Data Files: {'Yes' if export_data else 'No'}")
@@ -79,9 +73,9 @@ def run_complete_analysis(fund_alias='', fund_user_id='', reference_date='2025-0
             
             result = export_differences(
                 fund_alias=fund_alias,
-                fund_user_id=fund_user_id,
+                fund_user_id='',
                 reference_date=reference_date,
-                fund_csv_path=fund_csv_path,
+                fund_csv_path=None,
                 export_data=export_data,
                 export_differences=export_differences
             )
@@ -90,7 +84,7 @@ def run_complete_analysis(fund_alias='', fund_user_id='', reference_date='2025-0
                 differences_file = result.get('differences_file')
                 diff_df = result.get('diff_df')  # Use DataFrame directly if no file was created
                 fund_name = result.get('fund_name')
-                fund_identifier = result.get('fund_identifier', fund_identifier)
+                fund_identifier = result.get('fund_identifier', fund_alias)
                 
                 print(f"✅ Comparison completed successfully!")
                 if fund_name:
@@ -110,7 +104,7 @@ def run_complete_analysis(fund_alias='', fund_user_id='', reference_date='2025-0
         print("⏭️  STEP 1: SKIPPED (using existing differences file)")
         differences_file = None
         diff_df = None
-        fund_identifier = fund_alias if fund_alias else fund_user_id
+        fund_identifier = fund_alias
     
     print()
     
@@ -197,9 +191,6 @@ Examples:
   # Run complete analysis for PI fund (creates all files)
   python run_fund_analysis.py --fund pi --date 2025-05-30 --format excel
   
-  # Run analysis for custom fund using user ID
-  python run_fund_analysis.py --fund-user-id 12345678 --fund-csv /path/to/fund.csv --date 2025-05-30 --format excel
-  
   # Only create the final Excel file (no intermediate files)
   python run_fund_analysis.py --fund pi --format excel --output-only
   
@@ -232,17 +223,8 @@ File Creation Options:
     parser.add_argument(
         '--fund', 
         choices=['pi', 'ai', 'akira1', 'akira2', 'bigpicture1', 'bigpicture2', 'bigpicture3', 'bigpicture4', 'kickass1', 'kickass2'], 
-        help='Fund alias to analyze'
-    )
-    
-    parser.add_argument(
-        '--fund-user-id',
-        help='Fund user ID to analyze (alternative to --fund)'
-    )
-    
-    parser.add_argument(
-        '--fund-csv',
-        help='Path to fund CSV file (required when using --fund-user-id)'
+        help='Fund alias to analyze',
+        required=True
     )
     
     parser.add_argument(
@@ -307,16 +289,6 @@ File Creation Options:
         check_setup()
         return
     
-    # Validate fund specification
-    if not args.fund and not args.fund_user_id:
-        print("❌ Error: Either --fund or --fund-user-id must be provided")
-        parser.print_help()
-        sys.exit(1)
-    
-    if args.fund_user_id and not args.fund_csv:
-        print("❌ Error: --fund-csv is required when using --fund-user-id")
-        sys.exit(1)
-    
     # Validate date format
     try:
         datetime.strptime(args.date, '%Y-%m-%d')
@@ -326,9 +298,9 @@ File Creation Options:
     
     # Run the analysis
     success = run_complete_analysis(
-        fund_alias=args.fund or '',
-        fund_user_id=args.fund_user_id or '',
-        fund_csv_path=args.fund_csv,
+        fund_alias=args.fund,
+        fund_user_id='',
+        fund_csv_path=None,
         reference_date=args.date,
         output_format=args.format,
         skip_comparison=args.skip_comparison,
